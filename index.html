@@ -109,8 +109,7 @@
   </main>
 </div>
 
-<!-- ========== 可选：服务端代理（POST /zip）。留空则用前端打包 ==========
-      也可通过网址参数设置：?zipapi=https://你的代理域名/zip               -->
+<!-- 可选：服务端代理（POST /zip）。也可通过 ?zipapi=... 动态设置 -->
 <script>
   window.ZIP_API_URL = ""; // 例如 "https://spec-plan-zipper.onrender.com/zip"
   (function applyZipApiFromURL(){
@@ -131,7 +130,6 @@
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js';
   import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js';
 
-  // 你的 Firebase 配置（已替换为你给的）
   const firebaseConfig = {
     apiKey: "AIzaSyBcczqGj5X1_w9aCX1lOK4-kgz49Oi03Bg",
     authDomain: "scheduling-dd672.firebaseapp.com",
@@ -144,7 +142,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  /* =================== DOM =================== */
+  /* =================== DOM 引用 =================== */
   const txt = document.getElementById('txt');
   const tbody = document.getElementById('tbody');
   const kTotal = document.getElementById('kTotal');
@@ -160,7 +158,7 @@
   const statusEl   = document.getElementById('status');
   const modeBadge  = document.getElementById('modeBadge');
 
-  /* =================== 小工具 =================== */
+  /* =================== 工具函数（只声明一次） =================== */
   const sanitizeName = (s)=> (s||'').replace(/[^A-Za-z0-9._-]+/g,'_');
 
   function downloadText(filename, text){
@@ -240,6 +238,7 @@
     }
     return val;
   }
+
   async function buildRows(chassisList){
     const spMap = await fetchSpecPlanMap();
     return chassisList.map(ch=>{
@@ -296,6 +295,7 @@
     const zip = new JSZip();
     const failed = [];
     let okCount = 0;
+
     statusEl.textContent = `准备打包…`;
 
     const tasks = [];
@@ -309,7 +309,8 @@
     let done = 0;
     const results = await mapLimit(tasks, 4, async (t)=>{
       const res = await fetchAsBlobOrNull(t.url);
-      done++; statusEl.textContent = `抓取中（${done}/${tasks.length}）…`; return { task:t, res };
+      done++; statusEl.textContent = `抓取中（${done}/${tasks.length}）…`;
+      return { task:t, res };
     });
 
     for (const {task, res} of results){
@@ -386,7 +387,7 @@
     }
   }
 
-  /* =================== 交互逻辑 =================== */
+  /* =================== 交互逻辑（仅此一份） =================== */
   let currentRows = [];
   async function refresh(){
     const list = parseChassis(txt.value);
@@ -396,56 +397,21 @@
     const has = rows.length > 0;
     btnZipAll.disabled = btnZipPlan.disabled = btnZipSpec.disabled = !has;
   }
-
   txt.addEventListener('input', ()=>{ refresh(); });
   btnPaste.addEventListener('click', async ()=>{
     try{ const t = await navigator.clipboard.readText(); txt.value = (txt.value? txt.value+'\n':'') + t; refresh(); }catch{}
   });
-  btnClear   .addEventListener('click', ()=>{ txt.value=''; refresh(); });
-  btnZipAll  .addEventListener('click', ()=> clickZip('all'));
-  btnZipPlan .addEventListener('click', ()=> clickZip('plan'));
-  btnZipSpec .addEventListener('click', ()=> clickZip('spec'));
+  btnClear.addEventListener('click', ()=>{ txt.value=''; refresh(); });
 
-  function renderRows(rows){
-    tbody.innerHTML = '';
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">暂无数据，先在上面粘贴。</td></tr>`;
-      return;
-    }
-    let hasPlan=0, hasSpec=0, both=0, miss=0;
-    rows.forEach((r,i)=>{
-      const st = r.hasPlan && r.hasSpec ? `<span class="ok">✅ 已齐</span>`
-               : (r.hasPlan || r.hasSpec) ? `<span class="warnc">⚠️ 缺一项</span>`
-               : `<span class="err">❌ 均缺</span>`;
-      tbody.insertAdjacentHTML('beforeend', `
-        <tr>
-          <td>${i+1}</td>
-          <td class="mono">${r.chassis}</td>
-          <td>${r.planUrl ? `<a href="${r.planUrl}" target="_blank" rel="noreferrer">打开 Plan</a>` : `<span class="muted">无</span>`}</td>
-          <td>${r.specUrl ? `<a href="${r.specUrl}" target="_blank" rel="noreferrer">打开 Spec</a>` : `<span class="muted">无</span>`}</td>
-          <td>${st}</td>
-        </tr>`);
-      if (r.hasPlan) hasPlan++;
-      if (r.hasSpec) hasSpec++;
-      if (r.hasPlan && r.hasSpec) both++;
-      if (!r.hasPlan && !r.hasSpec) miss++;
-    });
-    kTotal.textContent = rows.length;
-    kPlan.textContent  = hasPlan;
-    kSpec.textContent  = hasSpec;
-    kBoth.textContent  = both;
-    kMiss.textContent  = miss;
-    btnZipAll.disabled = btnZipPlan.disabled = btnZipSpec.disabled = rows.length===0;
-  }
+  btnZipAll .addEventListener('click', ()=> clickZip('all'));
+  btnZipPlan.addEventListener('click', ()=> clickZip('plan'));
+  btnZipSpec.addEventListener('click', ()=> clickZip('spec'));
 
-  async function buildRows(chassisList){
-    const spMap = await fetchSpecPlanMap();
-    return chassisList.map(ch=>{
-      const rec = spMap[ch];
-      const {planUrl, specUrl} = pickUrls(rec);
-      return { chassis: ch, planUrl, specUrl, hasPlan: !!planUrl, hasSpec: !!specUrl };
-    });
-  }
+  // 初始状态
+  renderRows([]);
+  modeBadge.textContent = (window.ZIP_API_URL && /^https?:\/\//i.test(window.ZIP_API_URL))
+    ? '服务端打包模式' : '前端打包模式';
+
 </script>
 </body>
 </html>
