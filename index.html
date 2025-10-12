@@ -2,37 +2,33 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <title>Bulk Spec/Plan Downloader (Static, Guarded)</title>
+  <title>Spec/Plan 批量下载（单服务版）</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root { --bg:#0b0d10; --panel:#151a22; --muted:#8b95a7; --fg:#e7eef8; --acc:#1ea971; --warn:#ca8a04; --err:#ef4444; --border:#222a36; }
+    :root { --bg:#0b0d10; --panel:#151a22; --muted:#8b95a7; --fg:#e7eef8; --acc:#1ea971; --border:#222a36; }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-    header{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#0e131a,transparent)}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#0e131a,transparent)}
     .wrap{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
-    aside{border-right:1px solid var(--border);background:var(--panel);padding:20px;height:100%}
-    main{padding:24px 24px 64px}
+    aside{border-right:1px solid var(--border);background:var(--panel);padding:18px;height:100%}
+    main{padding:22px 22px 56px}
     h1{font-size:18px;margin:0}
     h2{font-size:14px;margin:0 0 8px;color:var(--muted)}
     .muted{color:var(--muted)}
-    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .btn{appearance:none;border:1px solid var(--border);background:#11161e;color:#e7eef8;padding:8px 12px;border-radius:10px;cursor:pointer}
     .btn:hover{border-color:#2c3646}
     .btn.acc{background:var(--acc);border-color:#0e7b4e;color:#07150f}
-    .btn.ghost{background:transparent}
     .btn[disabled]{opacity:.5;cursor:not-allowed}
-    textarea{width:100%;height:180px;background:#0d1219;border:1px solid var(--border);border-radius:10px;color:#e7eef8;padding:10px}
+    textarea{width:100%;height:170px;background:#0d1219;border:1px solid var(--border);border-radius:10px;color:#e7eef8;padding:10px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:13px}
     th{color:#8b95a7;font-weight:600}
-    .kpi{display:flex;gap:14px;flex-wrap:wrap}
     .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#0f141c}
     .ok{color:#1ea971} .warnc{color:#ca8a04} .err{color:#ef4444}
     a{color:#93c5fd}
-    footer{padding:12px 24px 24px;color:#8b95a7}
-    .small{font-size:12px}
-    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .mono{font-family: ui-monospace,Menlo,Consolas,monospace}
     #status{color:#8b95a7;font-size:12px;margin-left:8px}
     #modeBadge{font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:#0f141c}
   </style>
@@ -40,10 +36,11 @@
 <body>
 <header>
   <div>
-    <h1>Bulk Spec / Plan Downloader</h1>
+    <h1>Spec/Plan 批量下载</h1>
+    <div class="muted" style="font-size:12px">本页面与打包接口部署在同一个 Render Web Service。</div>
   </div>
   <div class="row">
-    <span id="modeBadge">前端打包模式</span>
+    <span id="modeBadge">服务端打包模式</span>
     <button id="btnZipAll"  class="btn acc" disabled>打包 ZIP（全部）</button>
     <button id="btnZipPlan" class="btn"     disabled>只打包 Plan</button>
     <button id="btnZipSpec" class="btn"     disabled>只打包 Spec</button>
@@ -53,41 +50,37 @@
 
 <div class="wrap">
   <aside>
-    <h2>连接数据库</h2>
-    <div class="card small">
-      <div class="muted">读取 RTDB 路径 <span class="mono">spec_plan</span>。</div>
+    <h2>数据库</h2>
+    <div class="card" style="font-size:12px">
+      从 Firebase RTDB 读取 <span class="mono">spec_plan</span>。
     </div>
 
     <h2>统计</h2>
-    <div class="card">
-      <div class="kpi">
-        <div class="pill">总数 <b id="kTotal">0</b></div>
-        <div class="pill">有 Plan <b id="kPlan">0</b></div>
-        <div class="pill">有 Spec <b id="kSpec">0</b></div>
-        <div class="pill ok">都有 <b id="kBoth">0</b></div>
-        <div class="pill err">都缺 <b id="kMiss">0</b></div>
-      </div>
+    <div class="card" id="kpi" style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="pill">总数 <b id="kTotal">0</b></div>
+      <div class="pill">有 Plan <b id="kPlan">0</b></div>
+      <div class="pill">有 Spec <b id="kSpec">0</b></div>
+      <div class="pill ok">都有 <b id="kBoth">0</b></div>
+      <div class="pill err">都缺 <b id="kMiss">0</b></div>
     </div>
 
     <h2>操作</h2>
     <div class="card row">
       <button id="btnPaste" class="btn">从剪贴板粘贴</button>
-      <button id="btnClear" class="btn ghost">清空</button>
+      <button id="btnClear" class="btn">清空</button>
     </div>
   </aside>
 
   <main>
     <div class="card">
       <h2>粘贴车架号</h2>
-      <div style="margin-top:10px">
-        <textarea id="txt" placeholder="从 Excel 复制整列粘贴到这里；支持换行/逗号/Tab；自动去重并忽略表头。"></textarea>
-      </div>
+      <textarea id="txt" placeholder="Excel 整列粘贴到这里（支持换行/逗号/Tab；自动去重，忽略表头）"></textarea>
     </div>
 
     <div class="card">
       <h2>匹配结果</h2>
-      <div style="overflow:auto;margin-top:10px">
-        <table id="tbl">
+      <div style="overflow:auto;margin-top:8px">
+        <table>
           <thead><tr><th>#</th><th>Chassis</th><th>Plan</th><th>Spec</th><th>状态</th></tr></thead>
           <tbody id="tbody"><tr><td colspan="5" class="muted">暂无数据。</td></tr></tbody>
         </table>
@@ -97,308 +90,168 @@
 </div>
 
 <script>
-  window.ZIP_API_URL = "";
-  (function applyZipApiFromURL(){
-    const parse = (s)=> new URLSearchParams(s||"");
-    const q = parse(location.search);
-    const h = parse(location.hash.includes("?") ? location.hash.split("?")[1] : "");
-    const v = q.get("zipapi") || h.get("zipapi");
-    if (v) window.ZIP_API_URL = decodeURIComponent(v);
-  })();
+  // 与同域 /zip 交互，无需 ?zipapi
+  window.ZIP_API_URL = "/zip";
 </script>
-
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <script type="module">
 (() => {
-  // --- All code wrapped in an IIFE to avoid 'already been declared' even if duplicated. ---
+  import('https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js').then(async ({initializeApp}) => {
+    const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js');
 
-  /* =================== Firebase =================== */
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js';
-  import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js';
+    const firebaseConfig = {
+      apiKey: "AIzaSyBcczqGj5X1_w9aCX1lOK4-kgz49Oi03Bg",
+      authDomain: "scheduling-dd672.firebaseapp.com",
+      databaseURL: "https://scheduling-dd672-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "scheduling-dd672",
+      storageBucket: "scheduling-dd672.firebasestorage.app",
+      messagingSenderId: "432092773012",
+      appId: "1:432092773012:web:ebc7203ea570b0da2ad281"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBcczqGj5X1_w9aCX1lOK4-kgz49Oi03Bg",
-    authDomain: "scheduling-dd672.firebaseapp.com",
-    databaseURL: "https://scheduling-dd672-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "scheduling-dd672",
-    storageBucket: "scheduling-dd672.firebasestorage.app",
-    messagingSenderId: "432092773012",
-    appId: "1:432092773012:web:ebc7203ea570b0da2ad281"
-  };
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+    // DOM
+    const txt = document.getElementById('txt');
+    const tbody = document.getElementById('tbody');
+    const kTotal = document.getElementById('kTotal');
+    const kPlan  = document.getElementById('kPlan');
+    const kSpec  = document.getElementById('kSpec');
+    const kBoth  = document.getElementById('kBoth');
+    const kMiss  = document.getElementById('kMiss');
+    const btnZipAll  = document.getElementById('btnZipAll');
+    const btnZipPlan = document.getElementById('btnZipPlan');
+    const btnZipSpec = document.getElementById('btnZipSpec');
+    const btnPaste   = document.getElementById('btnPaste');
+    const btnClear   = document.getElementById('btnClear');
+    const statusEl   = document.getElementById('status');
+    const modeBadge  = document.getElementById('modeBadge');
 
-  /* =================== DOM =================== */
-  const txt = document.getElementById('txt');
-  const tbody = document.getElementById('tbody');
-  const kTotal = document.getElementById('kTotal');
-  const kPlan  = document.getElementById('kPlan');
-  const kSpec  = document.getElementById('kSpec');
-  const kBoth  = document.getElementById('kBoth');
-  const kMiss  = document.getElementById('kMiss');
-  const btnZipAll  = document.getElementById('btnZipAll');
-  const btnZipPlan = document.getElementById('btnZipPlan');
-  const btnZipSpec = document.getElementById('btnZipSpec');
-  const btnPaste   = document.getElementById('btnPaste');
-  const btnClear   = document.getElementById('btnClear');
-  const statusEl   = document.getElementById('status');
-  const modeBadge  = document.getElementById('modeBadge');
+    const sanitizeName = (s)=> (s||'').replace(/[^A-Za-z0-9._-]+/g,'_');
 
-  /* =================== Utils =================== */
-  const sanitizeName = (s)=> (s||'').replace(/[^A-Za-z0-9._-]+/g,'_');
-
-  function downloadText(filename, text){
-    const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-  }
-  function downloadHTML(filename, html){
-    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function parseChassis(raw) {
-    if (!raw) return [];
-    const parts = raw.replace(/\r/g, '\n').split(/[\n,\t,;]+/).map(s=>s.trim()).filter(Boolean);
-    const filtered = parts.filter(s => !/^chassis(\s*number)?$/i.test(s));
-    const seen = new Set(); const out=[];
-    for (const x of filtered) if(!seen.has(x)){ seen.add(x); out.push(x); }
-    return out;
-  }
-  function pickUrls(sp) {
-    if (!sp || typeof sp!=='object') return { planUrl:'', specUrl:'' };
-    const plan = sp.plan || sp.Plan || sp.PLAN || sp.plan_url || sp.PlanUrl || '';
-    const spec = sp.spec || sp.Spec || sp.SPEC || sp.spec_url || sp.SpecUrl || '';
-    return { planUrl:String(plan||''), specUrl:String(spec||'') };
-  }
-
-  function renderRows(rows){
-    tbody.innerHTML = '';
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">暂无数据。</td></tr>`;
-      btnZipAll.disabled = btnZipPlan.disabled = btnZipSpec.disabled = true;
-      kTotal.textContent = '0'; kPlan.textContent='0'; kSpec.textContent='0'; kBoth.textContent='0'; kMiss.textContent='0';
-      return;
+    function parseChassis(raw) {
+      if (!raw) return [];
+      const parts = raw.replace(/\r/g, '\n').split(/[\n,\t,;]+/).map(s=>s.trim()).filter(Boolean);
+      const filtered = parts.filter(s => !/^chassis(\s*number)?$/i.test(s));
+      const seen = new Set(); const out=[];
+      for (const x of filtered) if(!seen.has(x)){ seen.add(x); out.push(x); }
+      return out;
     }
-    let hasPlan=0, hasSpec=0, both=0, miss=0;
-    rows.forEach((r,i)=>{
-      const st = r.hasPlan && r.hasSpec ? `<span class="ok">✅ 已齐</span>`
-               : (r.hasPlan || r.hasSpec) ? `<span class="warnc">⚠️ 缺一项</span>`
-               : `<span class="err">❌ 均缺</span>`;
-      tbody.insertAdjacentHTML('beforeend', `
-        <tr>
-          <td>${i+1}</td>
-          <td class="mono">${r.chassis}</td>
-          <td>${r.planUrl ? `<a href="${r.planUrl}" target="_blank" rel="noreferrer">打开 Plan</a>` : `<span class="muted">无</span>`}</td>
-          <td>${r.specUrl ? `<a href="${r.specUrl}" target="_blank" rel="noreferrer">打开 Spec</a>` : `<span class="muted">无</span>`}</td>
-          <td>${st}</td>
-        </tr>`);
-      if (r.hasPlan) hasPlan++;
-      if (r.hasSpec) hasSpec++;
-      if (r.hasPlan && r.hasSpec) both++;
-      if (!r.hasPlan && !r.hasSpec) miss++;
-    });
-    kTotal.textContent = rows.length;
-    kPlan.textContent  = hasPlan;
-    kSpec.textContent  = hasSpec;
-    kBoth.textContent  = both;
-    kMiss.textContent  = miss;
-    btnZipAll.disabled = btnZipPlan.disabled = btnZipSpec.disabled = rows.length===0;
-  }
+    function pickUrls(sp) {
+      if (!sp || typeof sp!=='object') return { planUrl:'', specUrl:'' };
+      const plan = sp.plan || sp.Plan || sp.PLAN || sp.plan_url || sp.PlanUrl || '';
+      const spec = sp.spec || sp.Spec || sp.SPEC || sp.spec_url || sp.SpecUrl || '';
+      return { planUrl:String(plan||''), specUrl:String(spec||'') };
+    }
 
-  async function fetchSpecPlanMap(){
-    const snap = await get(ref(db, 'spec_plan'));
-    const val = snap.val() || {};
-    if (Array.isArray(val)) {
-      const map = {};
-      for (const item of val) {
-        const ch = (item && (item.Chassis || item['Chassis Number'] || item.chassis || '')+'').trim();
-        if (ch) map[ch] = item;
+    function renderRows(rows){
+      tbody.innerHTML = '';
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="muted">暂无数据。</td></tr>`;
+        btnZipAll.disabled = btnZipPlan.disabled = btnZipSpec.disabled = true;
+        kTotal.textContent = '0'; kPlan.textContent='0'; kSpec.textContent='0'; kBoth.textContent='0'; kMiss.textContent='0';
+        return;
       }
-      return map;
+      let hasPlan=0, hasSpec=0, both=0, miss=0;
+      rows.forEach((r,i)=>{
+        const st = r.hasPlan && r.hasSpec ? `<span class="ok">✅ 已齐</span>`
+                : (r.hasPlan || r.hasSpec) ? `<span class="warnc">⚠️ 缺一项</span>`
+                : `<span class="err">❌ 均缺</span>`;
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td>${i+1}</td>
+            <td class="mono">${r.chassis}</td>
+            <td>${r.planUrl ? `<a href="${r.planUrl}" target="_blank" rel="noreferrer">打开 Plan</a>` : `<span class="muted">无</span>`}</td>
+            <td>${r.specUrl ? `<a href="${r.specUrl}" target="_blank" rel="noreferrer">打开 Spec</a>` : `<span class="muted">无</span>`}</td>
+            <td>${st}</td>
+          </tr>`);
+        if (r.hasPlan) hasPlan++;
+        if (r.hasSpec) hasSpec++;
+        if (r.hasPlan && r.hasSpec) both++;
+        if (!r.hasPlan && !r.hasSpec) miss++;
+      });
+      kTotal.textContent = rows.length;
+      kPlan.textContent  = hasPlan;
+      kSpec.textContent  = hasSpec;
+      kBoth.textContent  = both;
+      kMiss.textContent  = miss;
+      btnZipAll.disabled = btnZipPlan.disabled = btnZipSpec.disabled = rows.length===0;
     }
-    return val;
-  }
 
-  async function buildRows(chassisList){
-    const spMap = await fetchSpecPlanMap();
-    return chassisList.map(ch=>{
-      const rec = spMap[ch];
-      const {planUrl, specUrl} = pickUrls(rec);
-      return { chassis: ch, planUrl, specUrl, hasPlan: !!planUrl, hasSpec: !!specUrl };
-    });
-  }
-
-  function guessExt(url, contentType){
-    if (contentType) {
-      const ct = contentType.toLowerCase();
-      if (ct.includes('pdf')) return '.pdf';
-      if (ct.includes('jpeg') || ct.includes('jpg')) return '.jpg';
-      if (ct.includes('png')) return '.png';
-      if (ct.includes('webp')) return '.webp';
-      if (ct.includes('msword')) return '.doc';
-      if (ct.includes('officedocument.wordprocessingml')) return '.docx';
-      if (ct.includes('spreadsheetml')) return '.xlsx';
-      if (ct.includes('zip')) return '.zip';
-    }
-    const m = url.match(/(\.[a-z0-9]{3,5})(?:$|\?)/i);
-    return m ? m[1] : '';
-  }
-
-  async function fetchAsBlobOrNull(url){
-    try{
-      const res = await fetch(url, { credentials:'omit' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const ct = res.headers.get('content-type') || '';
-      const blob = await res.blob();
-      return { blob, contentType: ct };
-    }catch{ return null; }
-  }
-
-  async function mapLimit(arr, limit, iter){
-    const out = new Array(arr.length);
-    let idx = 0, running = 0;
-    return new Promise((resolve) => {
-      const next = () => {
-        while (running < limit && idx < arr.length) {
-          const cur = idx++; running++;
-          Promise.resolve(iter(arr[cur], cur))
-            .then(v => out[cur] = v)
-            .finally(() => { running--; if (idx === arr.length && running === 0) resolve(out); else next(); });
+    async function fetchSpecPlanMap(){
+      const snap = await get(ref(db, 'spec_plan'));
+      const val = snap.val() || {};
+      if (Array.isArray(val)) {
+        const map = {};
+        for (const item of val) {
+          const ch = (item && (item.Chassis || item['Chassis Number'] || item.chassis || '')+'').trim();
+          if (ch) map[ch] = item;
         }
-      };
-      next();
-    });
-  }
-
-  async function buildZipFrontend(kind, rows){
-    modeBadge.textContent = '前端打包模式';
-    const zip = new JSZip();
-    const failed = [];
-    let okCount = 0;
-
-    statusEl.textContent = `准备打包…`;
-
-    const tasks = [];
-    for (const r of rows){
-      const base = sanitizeName(r.chassis);
-      if ((kind==='all' || kind==='plan') && r.planUrl) tasks.push({ type:'PLAN', name:`${base}_PLAN`, url:r.planUrl });
-      if ((kind==='all' || kind==='spec') && r.specUrl) tasks.push({ type:'SPEC', name:`${base}_SPEC`, url:r.specUrl });
-    }
-    if (!tasks.length){ alert('没有可打包的文件'); return; }
-
-    let done = 0;
-    const results = await mapLimit(tasks, 4, async (t)=>{
-      const res = await fetchAsBlobOrNull(t.url);
-      done++; statusEl.textContent = `抓取中（${done}/${tasks.length}）…`;
-      return { task:t, res };
-    });
-
-    for (const {task, res} of results){
-      if (res){
-        okCount++;
-        const ext = guessExt(task.url, res.contentType);
-        zip.file(`${task.name}${ext}`, res.blob);
-      }else{
-        failed.push(`${task.type}\t${task.name}\t${task.url}`);
+        return map;
       }
+      return val;
     }
 
-    if (okCount === 0) {
-      statusEl.textContent = '全部被跨域限制：导出失败链接文件';
-      const txt = `TYPE\tNAME\tURL\n${failed.join('\n')}\n`;
-      downloadText('failed_links.txt', txt);
-      const html = `<!doctype html><meta charset="utf-8"><title>Open Failed Links</title>
-        <h3>点击以下链接逐个下载（可能仍需登录/权限）：</h3>
-        <ol>${results.map(({task})=>`<li><a href="${task.url}" target="_blank" rel="noreferrer">${task.name}</a></li>`).join('')}</ol>`;
-      downloadHTML('open_failed_links.html', html);
-      statusEl.textContent = ''; return;
+    async function buildRows(chassisList){
+      const spMap = await fetchSpecPlanMap();
+      return chassisList.map(ch=>{
+        const rec = spMap[ch];
+        const {planUrl, specUrl} = pickUrls(rec);
+        return { chassis: ch, planUrl, specUrl, hasPlan: !!planUrl, hasSpec: !!specUrl };
+      });
     }
 
-    if (failed.length) zip.file('failed.txt', `TYPE\tNAME\tURL\n${failed.join('\n')}\n`);
-
-    statusEl.textContent = `压缩中…`;
-    const blob = await zip.generateAsync({ type:'blob', compression:'DEFLATE', compressionOptions:{ level:5 } });
-    statusEl.textContent = `完成，开始下载`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-    a.href = url; a.download = `spec-plan-${kind}-${stamp}.zip`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    statusEl.textContent = '';
-  }
-
-  async function buildZipViaServer(kind, rows){
-    modeBadge.textContent = '服务端打包模式';
-    const items = [];
-    for (const r of rows) {
-      const base = sanitizeName(r.chassis);
-      if ((kind === 'all' || kind === 'plan') && r.planUrl) items.push({ url: r.planUrl, name: `${base}_PLAN` });
-      if ((kind === 'all' || kind === 'spec') && r.specUrl) items.push({ url: r.specUrl, name: `${base}_SPEC` });
+    async function buildZip(kind, rows){
+      const items = [];
+      for (const r of rows) {
+        const base = sanitizeName(r.chassis);
+        if ((kind === 'all' || kind === 'plan') && r.planUrl) items.push({ url: r.planUrl, name: `${base}_PLAN` });
+        if ((kind === 'all' || kind === 'spec') && r.specUrl) items.push({ url: r.specUrl, name: `${base}_SPEC` });
+      }
+      if (!items.length){ alert('没有可打包的文件'); return; }
+      statusEl.textContent = `请求服务器打包…`;
+      const resp = await fetch("/zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items })
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Zip API ${resp.status}: ${text || 'Unexpected error'}`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const cd = resp.headers.get("Content-Disposition") || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      a.download = m ? m[1] : `spec-plan-${kind}.zip`;
+      a.href = url; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      statusEl.textContent = '';
     }
-    if (!items.length){ alert('没有可打包的文件'); return; }
 
-    statusEl.textContent = `请求服务器打包…`;
-    const resp = await fetch(window.ZIP_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items })
+    // interactions
+    let currentRows = [];
+    async function refresh(){
+      const list = parseChassis(txt.value);
+      if (list.length===0){ renderRows([]); currentRows=[]; return; }
+      const rows = await buildRows(list);
+      currentRows = rows; renderRows(rows);
+    }
+    txt.addEventListener('input', refresh);
+    btnPaste.addEventListener('click', async ()=>{
+      try{ const t = await navigator.clipboard.readText(); txt.value = (txt.value? txt.value+'\n':'') + t; refresh(); }catch{}
     });
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`Zip API ${resp.status}: ${text || 'Unexpected error'}`);
-    }
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const cd = resp.headers.get("Content-Disposition") || "";
-    const m = cd.match(/filename="?([^"]+)"?/);
-    a.download = m ? m[1] : `spec-plan-${kind}.zip`;
-    a.href = url; document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    statusEl.textContent = '';
-  }
+    btnClear.addEventListener('click', ()=>{ txt.value=''; renderRows([]); currentRows=[]; });
 
-  function clickZip(kind){
-    if (window.ZIP_API_URL && /^https?:\/\//i.test(window.ZIP_API_URL)) {
-      return buildZipViaServer(kind, currentRows);
-    } else {
-      return buildZipFrontend(kind, currentRows);
-    }
-  }
+    btnZipAll .addEventListener('click', ()=> buildZip('all', currentRows));
+    btnZipPlan.addEventListener('click', ()=> buildZip('plan', currentRows));
+    btnZipSpec.addEventListener('click', ()=> buildZip('spec', currentRows));
 
-  /* =================== Interactions =================== */
-  let currentRows = [];
-  async function refresh(){
-    const list = parseChassis(txt.value);
-    if (list.length===0){ renderRows([]); currentRows=[]; return; }
-    const rows = await buildRows(list);
-    currentRows = rows; renderRows(rows);
-    const has = rows.length > 0;
-    btnZipAll.disabled = btnZipPlan.disabled = btnZipSpec.disabled = !has;
-  }
-
-  txt.addEventListener('input', ()=>{ refresh(); });
-  btnPaste.addEventListener('click', async ()=>{
-    try{ const t = await navigator.clipboard.readText(); txt.value = (txt.value? txt.value+'\n':'') + t; refresh(); }catch{}
+    renderRows([]);
+    modeBadge.textContent = '服务端打包模式';
   });
-  btnClear.addEventListener('click', ()=>{ txt.value=''; renderRows([]); currentRows=[]; });
-
-  btnZipAll .addEventListener('click', ()=> clickZip('all'));
-  btnZipPlan.addEventListener('click', ()=> clickZip('plan'));
-  btnZipSpec.addEventListener('click', ()=> clickZip('spec'));
-
-  // Initial
-  renderRows([]);
-  modeBadge.textContent = (window.ZIP_API_URL && /^https?:\/\//i.test(window.ZIP_API_URL))
-    ? '服务端打包模式' : '前端打包模式';
 })(); // end IIFE
 </script>
 </body>
