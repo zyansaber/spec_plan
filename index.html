@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Spec/Plan 批量下载（单服务版）</title>
+  <title>Spec/Plan Bulk Download (Single Service)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     :root { --bg:#0b0d10; --panel:#151a22; --muted:#8b95a7; --fg:#e7eef8; --acc:#1ea971; --border:#222a36; }
@@ -36,53 +36,53 @@
 <body>
 <header>
   <div>
-    <h1>Spec/Plan 批量下载</h1>
-    <div class="muted" style="font-size:12px">本页面与打包接口部署在同一个 Render Web Service。</div>
+    <h1>Spec/Plan Bulk Download</h1>
+    <div class="muted" style="font-size:12px">This page and the ZIP API are deployed on the same Render Web Service.</div>
   </div>
   <div class="row">
-    <span id="modeBadge">服务端打包模式</span>
-    <button id="btnZipAll"  class="btn acc" disabled>打包 ZIP（全部）</button>
-    <button id="btnZipPlan" class="btn"     disabled>只打包 Plan</button>
-    <button id="btnZipSpec" class="btn"     disabled>只打包 Spec</button>
+    <span id="modeBadge">Server ZIP Mode</span>
+    <button id="btnZipAll"  class="btn acc" disabled>Download ZIP (All)</button>
+    <button id="btnZipPlan" class="btn"     disabled>Plan Only</button>
+    <button id="btnZipSpec" class="btn"     disabled>Spec Only</button>
     <span id="status"></span>
   </div>
 </header>
 
 <div class="wrap">
   <aside>
-    <h2>数据库</h2>
+    <h2>Database</h2>
     <div class="card" style="font-size:12px">
-      从 Firebase RTDB 读取 <span class="mono">spec_plan</span>。
+      Reads <span class="mono">spec_plan</span> from Firebase RTDB.
     </div>
 
-    <h2>统计</h2>
+    <h2>Statistics</h2>
     <div class="card" id="kpi" style="display:flex;gap:10px;flex-wrap:wrap">
-      <div class="pill">总数 <b id="kTotal">0</b></div>
-      <div class="pill">有 Plan <b id="kPlan">0</b></div>
-      <div class="pill">有 Spec <b id="kSpec">0</b></div>
-      <div class="pill ok">都有 <b id="kBoth">0</b></div>
-      <div class="pill err">都缺 <b id="kMiss">0</b></div>
+      <div class="pill">Total <b id="kTotal">0</b></div>
+      <div class="pill">With Plan <b id="kPlan">0</b></div>
+      <div class="pill">With Spec <b id="kSpec">0</b></div>
+      <div class="pill ok">Both <b id="kBoth">0</b></div>
+      <div class="pill err">Missing Both <b id="kMiss">0</b></div>
     </div>
 
-    <h2>操作</h2>
+    <h2>Actions</h2>
     <div class="card row">
-      <button id="btnPaste" class="btn">从剪贴板粘贴</button>
-      <button id="btnClear" class="btn">清空</button>
+      <button id="btnPaste" class="btn">Paste from Clipboard</button>
+      <button id="btnClear" class="btn">Clear</button>
     </div>
   </aside>
 
   <main>
     <div class="card">
-      <h2>粘贴车架号</h2>
-      <textarea id="txt" placeholder="Excel 整列粘贴到这里（支持换行/逗号/Tab；自动去重，忽略表头）"></textarea>
+      <h2>Paste Chassis Numbers</h2>
+      <textarea id="txt" placeholder="Paste an Excel column here (supports line breaks, commas, and tabs; automatically deduplicates and ignores headers)"></textarea>
     </div>
 
     <div class="card">
-      <h2>匹配结果</h2>
+      <h2>Match Results</h2>
       <div style="overflow:auto;margin-top:8px">
         <table>
-          <thead><tr><th>#</th><th>Chassis</th><th>Plan</th><th>Spec</th><th>状态</th></tr></thead>
-          <tbody id="tbody"><tr><td colspan="5" class="muted">暂无数据。</td></tr></tbody>
+          <thead><tr><th>#</th><th>Chassis</th><th>Plan</th><th>Spec</th><th>Status</th></tr></thead>
+          <tbody id="tbody"><tr><td colspan="5" class="muted">No data yet.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -90,7 +90,7 @@
 </div>
 
 <script>
-  // 与同域 /zip 交互，无需 ?zipapi
+  // Interacts with same-origin /zip; no ?zipapi needed
   window.ZIP_API_URL = "/zip";
 </script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -148,22 +148,22 @@
     function renderRows(rows){
       tbody.innerHTML = '';
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="muted">暂无数据。</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="muted">No data yet.</td></tr>`;
         btnZipAll.disabled = btnZipPlan.disabled = btnZipSpec.disabled = true;
         kTotal.textContent = '0'; kPlan.textContent='0'; kSpec.textContent='0'; kBoth.textContent='0'; kMiss.textContent='0';
         return;
       }
       let hasPlan=0, hasSpec=0, both=0, miss=0;
       rows.forEach((r,i)=>{
-        const st = r.hasPlan && r.hasSpec ? `<span class="ok">✅ 已齐</span>`
-                : (r.hasPlan || r.hasSpec) ? `<span class="warnc">⚠️ 缺一项</span>`
-                : `<span class="err">❌ 均缺</span>`;
+        const st = r.hasPlan && r.hasSpec ? `<span class="ok">✅ Complete</span>`
+                : (r.hasPlan || r.hasSpec) ? `<span class="warnc">⚠️ Missing one</span>`
+                : `<span class="err">❌ Missing both</span>`;
         tbody.insertAdjacentHTML('beforeend', `
           <tr>
             <td>${i+1}</td>
             <td class="mono">${r.chassis}</td>
-            <td>${r.planUrl ? `<a href="${r.planUrl}" target="_blank" rel="noreferrer">打开 Plan</a>` : `<span class="muted">无</span>`}</td>
-            <td>${r.specUrl ? `<a href="${r.specUrl}" target="_blank" rel="noreferrer">打开 Spec</a>` : `<span class="muted">无</span>`}</td>
+            <td>${r.planUrl ? `<a href="${r.planUrl}" target="_blank" rel="noreferrer">Open Plan</a>` : `<span class="muted">None</span>`}</td>
+            <td>${r.specUrl ? `<a href="${r.specUrl}" target="_blank" rel="noreferrer">Open Spec</a>` : `<span class="muted">None</span>`}</td>
             <td>${st}</td>
           </tr>`);
         if (r.hasPlan) hasPlan++;
@@ -209,8 +209,8 @@
         if ((kind === 'all' || kind === 'plan') && r.planUrl) items.push({ url: r.planUrl, name: `${base}_PLAN` });
         if ((kind === 'all' || kind === 'spec') && r.specUrl) items.push({ url: r.specUrl, name: `${base}_SPEC` });
       }
-      if (!items.length){ alert('没有可打包的文件'); return; }
-      statusEl.textContent = `请求服务器打包…`;
+      if (!items.length){ alert('No files are available to package.'); return; }
+      statusEl.textContent = `Requesting server ZIP…`;
       const resp = await fetch("/zip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -250,7 +250,7 @@
     btnZipSpec.addEventListener('click', ()=> buildZip('spec', currentRows));
 
     renderRows([]);
-    modeBadge.textContent = '服务端打包模式';
+    modeBadge.textContent = 'Server ZIP Mode';
   });
 })(); // end IIFE
 </script>
